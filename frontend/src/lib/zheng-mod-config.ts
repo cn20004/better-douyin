@@ -1,6 +1,6 @@
 import { readBoolean, writeBoolean } from "@/lib/storage";
 
-export const ZHENG_MOD_VERSION = "1.0.0-z1";
+export const ZHENG_MOD_VERSION = "1.1.0-z2";
 export const UPSTREAM_APP_VERSION = "1.1.5";
 
 export interface ZhengModFeatures {
@@ -8,6 +8,11 @@ export interface ZhengModFeatures {
   skipDuplicateDownloads: boolean;
   showDownloadBadges: boolean;
   syncExistingHistory: boolean;
+  rememberScrollPosition: boolean;
+  trackViewedVideos: boolean;
+  trackDownloadSource: boolean;
+  failedDownloadList: boolean;
+  showDownloadFilters: boolean;
 }
 
 export type ZhengModFeatureKey = keyof ZhengModFeatures;
@@ -17,6 +22,11 @@ const FEATURE_KEYS: Record<ZhengModFeatureKey, string> = {
   skipDuplicateDownloads: "zheng-mod.skipDuplicateDownloads",
   showDownloadBadges: "zheng-mod.showDownloadBadges",
   syncExistingHistory: "zheng-mod.syncExistingHistory",
+  rememberScrollPosition: "zheng-mod.rememberScrollPosition",
+  trackViewedVideos: "zheng-mod.trackViewedVideos",
+  trackDownloadSource: "zheng-mod.trackDownloadSource",
+  failedDownloadList: "zheng-mod.failedDownloadList",
+  showDownloadFilters: "zheng-mod.showDownloadFilters",
 };
 
 const DEFAULTS: ZhengModFeatures = {
@@ -24,6 +34,11 @@ const DEFAULTS: ZhengModFeatures = {
   skipDuplicateDownloads: true,
   showDownloadBadges: true,
   syncExistingHistory: true,
+  rememberScrollPosition: true,
+  trackViewedVideos: true,
+  trackDownloadSource: true,
+  failedDownloadList: true,
+  showDownloadFilters: true,
 };
 
 const EVENT_NAME = "zheng-mod:features-changed";
@@ -34,6 +49,11 @@ export function readZhengModFeatures(): ZhengModFeatures {
     skipDuplicateDownloads: readBoolean(FEATURE_KEYS.skipDuplicateDownloads, DEFAULTS.skipDuplicateDownloads),
     showDownloadBadges: readBoolean(FEATURE_KEYS.showDownloadBadges, DEFAULTS.showDownloadBadges),
     syncExistingHistory: readBoolean(FEATURE_KEYS.syncExistingHistory, DEFAULTS.syncExistingHistory),
+    rememberScrollPosition: readBoolean(FEATURE_KEYS.rememberScrollPosition, DEFAULTS.rememberScrollPosition),
+    trackViewedVideos: readBoolean(FEATURE_KEYS.trackViewedVideos, DEFAULTS.trackViewedVideos),
+    trackDownloadSource: readBoolean(FEATURE_KEYS.trackDownloadSource, DEFAULTS.trackDownloadSource),
+    failedDownloadList: readBoolean(FEATURE_KEYS.failedDownloadList, DEFAULTS.failedDownloadList),
+    showDownloadFilters: readBoolean(FEATURE_KEYS.showDownloadFilters, DEFAULTS.showDownloadFilters),
   };
 }
 
