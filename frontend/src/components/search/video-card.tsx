@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { Clock, Download, Eye, Heart, Star, UserRound } from "lucide-react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { CheckCircle2, Clock, Download, Eye, Heart, Star, UserRound } from "lucide-react";
 import { VideoCover } from "@/components/media/video-cover";
 import { cancelVideoPrewarm, prewarmVideoForPlayback } from "@/lib/media-prewarm";
 import { cn, formatDuration, formatTime } from "@/lib/utils";
 import { mediaProxyUrl, type VideoInfo } from "@/lib/tauri";
 import { getVideoDurationSeconds } from "@/lib/video-media";
+import { getDownloadMemoryStatus, subscribeDownloadMemory, type DownloadMemoryStatus } from "@/lib/download-memory";
 
 interface VideoCardProps {
   video: VideoInfo;
@@ -40,6 +41,15 @@ export function VideoCard({
   const authorAvatar = video.author?.avatar_thumb || video.author?.avatar_medium;
   const durationSeconds = getVideoDurationSeconds(video);
   const durationLabel = durationSeconds > 0 ? formatDuration(durationSeconds) : "";
+  const [downloadStatus, setDownloadStatus] = useState<DownloadMemoryStatus | null>(() =>
+    getDownloadMemoryStatus(video.aweme_id)
+  );
+
+  useEffect(() => {
+    const refresh = () => setDownloadStatus(getDownloadMemoryStatus(video.aweme_id));
+    refresh();
+    return subscribeDownloadMemory(refresh);
+  }, [video.aweme_id]);
   const authorMeta = authorLabel || formatTime(video.create_time);
   const actionButtonClass =
     "flex h-7 w-7 items-center justify-center rounded-full text-white/82 transition-[background-color,color,transform,opacity] duration-[var(--duration-fast)] hover:bg-white/18 hover:text-white active:scale-[0.94] disabled:cursor-default disabled:opacity-45";
@@ -101,8 +111,17 @@ export function VideoCard({
         showStats={false}
       />
 
-      {(video.is_liked || video.is_collected) && (
+      {(video.is_liked || video.is_collected || downloadStatus) && (
         <div className="pointer-events-none absolute left-2 top-2 z-10 flex gap-1">
+          {downloadStatus && (
+            <span
+              className="flex h-7 items-center gap-1 rounded-full border border-white/20 bg-black/65 px-2 text-[0.64rem] font-semibold text-emerald-300 shadow-sm backdrop-blur-md"
+              title={downloadStatus === "downloaded" ? "这个作品已经下载过" : "这个作品已经在下载队列中"}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {downloadStatus === "downloaded" ? "已下载" : "已排队"}
+            </span>
+          )}
           {video.is_liked && (
             <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/55 text-accent shadow-sm backdrop-blur-md" title="已点赞">
               <Heart className="h-3.5 w-3.5 fill-current" />
@@ -193,11 +212,11 @@ export function VideoCard({
           type="button"
           className={actionButtonClass}
           onClick={(event) => stopAndRun(event, onDownload)}
-          disabled={!onDownload}
-          title="下载"
-          aria-label="下载作品"
+          disabled={!onDownload || Boolean(downloadStatus)}
+          title={downloadStatus === "downloaded" ? "已下载过" : downloadStatus === "queued" ? "已在下载队列中" : "下载"}
+          aria-label={downloadStatus === "downloaded" ? "作品已下载" : downloadStatus === "queued" ? "作品已在下载队列中" : "下载作品"}
         >
-          <Download className="h-3.5 w-3.5" />
+          {downloadStatus ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
         </button>
       </div>
     </Card>
