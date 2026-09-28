@@ -11,6 +11,7 @@ import { UserDetail } from "@/components/search/user-detail";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useGlobalNoticeMonitor } from "@/hooks/use-global-notice-monitor";
+import { readString, writeString } from "@/lib/storage";
 
 const RecommendedFeed = lazy(() => import("@/components/recommended/feed").then((module) => ({ default: module.RecommendedFeed })));
 const DownloadsView = lazy(() => import("@/components/downloads/downloads-view").then((module) => ({ default: module.DownloadsView })));
@@ -158,6 +159,16 @@ export function AppShell() {
           {VIEWS.filter((view) => visitedViews.has(view.id)).map((view) => (
             <div
               key={view.id}
+              data-view-id={view.id}
+              ref={(node) => {
+                if (!node || !view.scroll) return;
+                const saved = Number(readString(`zheng-mod.scroll.${view.id}`, "0")) || 0;
+                if (saved > 0 && Math.abs(node.scrollTop - saved) > 8) node.scrollTop = saved;
+              }}
+              onScroll={(event) => {
+                if (!view.scroll) return;
+                writeString(`zheng-mod.scroll.${view.id}`, String(event.currentTarget.scrollTop));
+              }}
               className={cn(
                 "absolute inset-0",
                 view.scroll
