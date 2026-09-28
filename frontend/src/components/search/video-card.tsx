@@ -7,6 +7,7 @@ import { cn, formatDuration, formatTime } from "@/lib/utils";
 import { mediaProxyUrl, type VideoInfo } from "@/lib/tauri";
 import { getVideoDurationSeconds } from "@/lib/video-media";
 import { getDownloadMemoryStatus, subscribeDownloadMemory, type DownloadMemoryStatus } from "@/lib/download-memory";
+import { isZhengModFeatureEnabled, subscribeZhengModFeatures } from "@/lib/zheng-mod-config";
 
 interface VideoCardProps {
   video: VideoInfo;
@@ -42,13 +43,20 @@ export function VideoCard({
   const durationSeconds = getVideoDurationSeconds(video);
   const durationLabel = durationSeconds > 0 ? formatDuration(durationSeconds) : "";
   const [downloadStatus, setDownloadStatus] = useState<DownloadMemoryStatus | null>(() =>
-    getDownloadMemoryStatus(video.aweme_id)
+    isZhengModFeatureEnabled("showDownloadBadges") ? getDownloadMemoryStatus(video.aweme_id) : null
   );
 
   useEffect(() => {
-    const refresh = () => setDownloadStatus(getDownloadMemoryStatus(video.aweme_id));
+    const refresh = () => setDownloadStatus(
+      isZhengModFeatureEnabled("showDownloadBadges") ? getDownloadMemoryStatus(video.aweme_id) : null
+    );
     refresh();
-    return subscribeDownloadMemory(refresh);
+    const unsubscribeMemory = subscribeDownloadMemory(refresh);
+    const unsubscribeFeatures = subscribeZhengModFeatures(refresh);
+    return () => {
+      unsubscribeMemory();
+      unsubscribeFeatures();
+    };
   }, [video.aweme_id]);
   const authorMeta = authorLabel || formatTime(video.create_time);
   const actionButtonClass =
@@ -212,7 +220,7 @@ export function VideoCard({
           type="button"
           className={actionButtonClass}
           onClick={(event) => stopAndRun(event, onDownload)}
-          disabled={!onDownload || Boolean(downloadStatus)}
+          disabled={!onDownload || (isZhengModFeatureEnabled("skipDuplicateDownloads") && Boolean(downloadStatus))}
           title={downloadStatus === "downloaded" ? "已下载过" : downloadStatus === "queued" ? "已在下载队列中" : "下载"}
           aria-label={downloadStatus === "downloaded" ? "作品已下载" : downloadStatus === "queued" ? "作品已在下载队列中" : "下载作品"}
         >
