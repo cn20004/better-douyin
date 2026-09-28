@@ -1,4 +1,5 @@
 import { readJson, writeJson } from "@/lib/storage";
+import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
 
 export type DownloadMemoryStatus = "queued" | "downloaded";
 
@@ -43,6 +44,7 @@ function writeMap(value: DownloadMemoryMap) {
 }
 
 export function getDownloadMemoryStatus(awemeId?: string | null): DownloadMemoryStatus | null {
+  if (!isZhengModFeatureEnabled("downloadMemory")) return null;
   const id = String(awemeId || "").trim();
   if (!id) return null;
   return readMap()[id]?.status || null;
@@ -57,6 +59,7 @@ export function rememberDownload(
   status: DownloadMemoryStatus,
   meta: { title?: string; author?: string } = {}
 ) {
+  if (!isZhengModFeatureEnabled("downloadMemory")) return;
   const id = String(awemeId || "").trim();
   if (!id) return;
   const map = readMap();
@@ -80,6 +83,7 @@ export function forgetQueuedDownload(awemeId?: string | null) {
 }
 
 export function rememberDownloadedIds(ids: Array<string | null | undefined>) {
+  if (!isZhengModFeatureEnabled("downloadMemory")) return;
   const map = readMap();
   let changed = false;
   const now = Date.now();
