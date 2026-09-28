@@ -23,6 +23,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Wrench,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { id: "notices", label: "通知", icon: Bell },
   { id: "friends-status", label: "好友", icon: Users },
   { id: "automation", label: "监控", icon: Activity },
+  { id: "failed-downloads", label: "下载失败", icon: AlertTriangle },
   { id: "zheng-mod", label: "郑老师魔改版", icon: Wrench },
   { id: "settings", label: "设置", icon: Settings },
 ];
