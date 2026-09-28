@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { useDownloadStore, useLogStore } from "@/stores/app-store";
+import { useAppStore, useDownloadStore, useLogStore } from "@/stores/app-store";
 import { useToastStore } from "@/components/ui/toast";
 import type { VideoInfo } from "@/lib/tauri";
 import {
@@ -31,6 +31,18 @@ import {
   markDownloadQueued,
   type ZhengDownloadSource,
 } from "@/lib/zheng-download-db";
+
+function inferDownloadSource(source: ZhengDownloadSource): ZhengDownloadSource {
+  if (source !== "unknown" || !isZhengModFeatureEnabled("trackDownloadSource")) return source;
+  const view = useAppStore.getState().currentView;
+  return ({
+    liked: "liked",
+    collected: "collected",
+    recommended: "recommended",
+    search: "search",
+    user: "author",
+  } as Partial<Record<string, ZhengDownloadSource>>)[view] || "unknown";
+}
 
 // ═══════════════════════════════════════════════
 // Download Hook
@@ -69,6 +81,7 @@ export function useDownloads() {
 
   const startSingleDownload = useCallback(
     async (video: VideoInfo, source: ZhengDownloadSource = "unknown") => {
+      source = inferDownloadSource(source);
       const taskId = video.aweme_id;
       const existingStatus = isZhengModFeatureEnabled("skipDuplicateDownloads") ? getDownloadMemoryStatus(taskId) : null;
       if (existingStatus) {
@@ -113,7 +126,7 @@ export function useDownloads() {
       } catch (e) {
         const msg = e instanceof Error ? e.message : "下载失败";
         forgetQueuedDownload(taskId);
-        markDownloadFailed(taskId, msg, source, video.desc || undefined, video.author?.nickname || undefined);
+        if (isZhengModFeatureEnabled("failedDownloadList")) markDownloadFailed(taskId, msg, source, video.desc || undefined, video.author?.nickname || undefined);
         updateTask({ id: taskId, status: "error", errorMessage: msg });
         addLog(msg, "error");
         toast(msg, "error");
@@ -124,6 +137,7 @@ export function useDownloads() {
 
   const downloadBatch = useCallback(
     async (videos: VideoInfo[], name: string = "批量下载", source: ZhengDownloadSource = "unknown") => {
+      source = inferDownloadSource(source);
       const pendingVideos = isZhengModFeatureEnabled("skipDuplicateDownloads")
         ? videos.filter((video) => !getDownloadMemoryStatus(video.aweme_id))
         : videos;
@@ -170,7 +184,7 @@ export function useDownloads() {
         const msg = e instanceof Error ? e.message : "批量下载启动失败";
         pendingVideos.forEach((video) => {
           forgetQueuedDownload(video.aweme_id);
-          markDownloadFailed(video.aweme_id, msg, source, video.desc || undefined, video.author?.nickname || undefined);
+          if (isZhengModFeatureEnabled("failedDownloadList")) markDownloadFailed(video.aweme_id, msg, source, video.desc || undefined, video.author?.nickname || undefined);
         });
         addLog(msg, "error");
         toast(msg, "error");
@@ -405,7 +419,7 @@ export function useDownloads() {
           markDownloadCompleted(task.awemeId);
         } else if (task.awemeId && task.status === "error") {
           forgetQueuedDownload(task.awemeId);
-          markDownloadFailed(task.awemeId, task.errorMessage || "下载失败");
+          if (isZhengModFeatureEnabled("failedDownloadList")) markDownloadFailed(task.awemeId, task.errorMessage || "下载失败");
         } else if (task.awemeId && task.status === "cancelled") {
           forgetQueuedDownload(task.awemeId);
         }
