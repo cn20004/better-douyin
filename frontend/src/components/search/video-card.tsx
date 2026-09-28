@@ -8,6 +8,8 @@ import { mediaProxyUrl, type VideoInfo } from "@/lib/tauri";
 import { getVideoDurationSeconds } from "@/lib/video-media";
 import { getDownloadMemoryStatus, subscribeDownloadMemory, type DownloadMemoryStatus } from "@/lib/download-memory";
 import { isZhengModFeatureEnabled, subscribeZhengModFeatures } from "@/lib/zheng-mod-config";
+import { useAppStore } from "@/stores/app-store";
+import { markVideoSeen, type ZhengDownloadSource } from "@/lib/zheng-download-db";
 
 interface VideoCardProps {
   video: VideoInfo;
@@ -63,6 +65,17 @@ export function VideoCard({
     "flex h-7 w-7 items-center justify-center rounded-full text-white/82 transition-[background-color,color,transform,opacity] duration-[var(--duration-fast)] hover:bg-white/18 hover:text-white active:scale-[0.94] disabled:cursor-default disabled:opacity-45";
 
   const handleCardClick = () => {
+    if (isZhengModFeatureEnabled("trackViewedVideos")) {
+      const view = useAppStore.getState().currentView;
+      const source = ({
+        liked: "liked",
+        collected: "collected",
+        recommended: "recommended",
+        search: "search",
+        user: "author",
+      } as Partial<Record<string, ZhengDownloadSource>>)[view] || "unknown";
+      markVideoSeen(video.aweme_id, source, video.desc || undefined, video.author?.nickname || undefined);
+    }
     prewarmVideoForPlayback(video, { mode: "playback" });
     onSelect?.(video);
   };
