@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/common/surface";
-import { CheckCircle2, RotateCcw, Settings2, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, Database, Download, RotateCcw, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 import {
   readZhengModFeatures,
   resetZhengModFeatures,
@@ -13,6 +13,11 @@ import {
   type ZhengModFeatureKey,
   type ZhengModFeatures,
 } from "@/lib/zheng-mod-config";
+import {
+  exportZhengDownloadDb,
+  getZhengDownloadStats,
+  subscribeZhengDownloadDb,
+} from "@/lib/zheng-download-db";
 
 const ITEMS: Array<{
   key: ZhengModFeatureKey;
@@ -38,6 +43,32 @@ const ITEMS: Array<{
     key: "syncExistingHistory",
     title: "启动时同步现有下载记录",
     description: "启动后读取现有下载历史并回填下载记忆，避免旧文件无法识别。",
+  },
+
+  {
+    key: "rememberScrollPosition",
+    title: "记住滚动位置",
+    description: "点赞、收藏等页面退出或重启后，继续回到上次浏览的位置。",
+  },
+  {
+    key: "trackViewedVideos",
+    title: "记录已浏览作品",
+    description: "点击打开过的视频会记录为已浏览，方便后续筛选和避免重复查看。",
+  },
+  {
+    key: "trackDownloadSource",
+    title: "记录下载来源",
+    description: "记录作品来自点赞、收藏、推荐、搜索、作者主页或合集。",
+  },
+  {
+    key: "failedDownloadList",
+    title: "下载失败清单",
+    description: "下载失败的作品进入独立页面，保留失败原因并支持单条或全部重新下载。",
+  },
+  {
+    key: "showDownloadFilters",
+    title: "显示下载状态筛选",
+    description: "在点赞和收藏页面显示全部、未下载、已下载、已排队、失败、已浏览筛选。",
   },
 ];
 
@@ -76,8 +107,10 @@ function Switch({
 
 export function ZhengModView() {
   const [features, setFeatures] = useState<ZhengModFeatures>(() => readZhengModFeatures());
+  const [stats, setStats] = useState(() => getZhengDownloadStats());
 
   useEffect(() => subscribeZhengModFeatures(() => setFeatures(readZhengModFeatures())), []);
+  useEffect(() => subscribeZhengDownloadDb(() => setStats(getZhengDownloadStats())), []);
 
   const setFeature = (key: ZhengModFeatureKey, enabled: boolean) => {
     setZhengModFeature(key, enabled);
@@ -122,6 +155,46 @@ export function ZhengModView() {
               {enabledCount} / {ITEMS.length}
             </div>
           </div>
+        </div>
+      </Surface>
+
+
+      <Surface density="default" tone="muted" className="rounded-[18px]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-text-muted" />
+            <h3 className="text-[0.86rem] font-semibold text-text">下载数据库中心</h3>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const blob = new Blob([exportZhengDownloadDb()], { type: "application/json;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const anchor = document.createElement("a");
+              anchor.href = url;
+              anchor.download = `zheng-douyin-download-db-${new Date().toISOString().slice(0, 10)}.json`;
+              anchor.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            导出 JSON
+          </Button>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-5">
+          {[
+            ["总记录", stats.total],
+            ["已浏览", stats.seen],
+            ["已排队", stats.queued],
+            ["已下载", stats.downloaded],
+            ["下载失败", stats.failed],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-[12px] border border-border bg-white/[0.02] p-3">
+              <div className="text-[0.64rem] text-text-muted">{label}</div>
+              <div className="mt-1 text-[1rem] font-bold tabular-nums text-text">{value}</div>
+            </div>
+          ))}
         </div>
       </Surface>
 
