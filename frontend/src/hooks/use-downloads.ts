@@ -67,9 +67,9 @@ export function useDownloads() {
       try {
         const history = await getHistory();
         if (disposed) return;
-        rememberDownloadedIds(
-          history.map((item) => String(item.aweme_id || item.id || "").trim()).filter(Boolean)
-        );
+        const downloadedIds = history.map((item) => String(item.aweme_id || item.id || "").trim()).filter(Boolean);
+        rememberDownloadedIds(downloadedIds);
+        downloadedIds.forEach((id) => markDownloadCompleted(id));
       } catch {
         // The release backend may be unavailable during early boot. Task sync still refreshes memory.
       }
