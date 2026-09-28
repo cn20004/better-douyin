@@ -24,6 +24,13 @@ import {
   rememberDownloadedIds,
 } from "@/lib/download-memory";
 import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
+import {
+  clearDownloadFailure,
+  markDownloadCompleted,
+  markDownloadFailed,
+  markDownloadQueued,
+  type ZhengDownloadSource,
+} from "@/lib/zheng-download-db";
 
 // ═══════════════════════════════════════════════
 // Download Hook
@@ -61,7 +68,7 @@ export function useDownloads() {
   }, []);
 
   const startSingleDownload = useCallback(
-    async (video: VideoInfo) => {
+    async (video: VideoInfo, source: ZhengDownloadSource = "unknown") => {
       const taskId = video.aweme_id;
       const existingStatus = isZhengModFeatureEnabled("skipDuplicateDownloads") ? getDownloadMemoryStatus(taskId) : null;
       if (existingStatus) {
@@ -95,6 +102,7 @@ export function useDownloads() {
           title: video.desc || undefined,
           author: video.author?.nickname || undefined,
         });
+        markDownloadQueued(taskId, source, video.desc || undefined, video.author?.nickname || undefined);
         if (result.task_id && result.task_id !== taskId) {
           replaceTaskId(taskId, result.task_id, {
             filename: displayName,
@@ -105,7 +113,8 @@ export function useDownloads() {
       } catch (e) {
         const msg = e instanceof Error ? e.message : "下载失败";
         forgetQueuedDownload(taskId);
-        updateTask({ id: taskId, status: "error" });
+        markDownloadFailed(taskId, msg, source, video.desc || undefined, video.author?.nickname || undefined);
+        updateTask({ id: taskId, status: "error", errorMessage: msg });
         addLog(msg, "error");
         toast(msg, "error");
       }
@@ -114,7 +123,7 @@ export function useDownloads() {
   );
 
   const downloadBatch = useCallback(
-    async (videos: VideoInfo[], name: string = "批量下载") => {
+    async (videos: VideoInfo[], name: string = "批量下载", source: ZhengDownloadSource = "unknown") => {
       const pendingVideos = isZhengModFeatureEnabled("skipDuplicateDownloads")
         ? videos.filter((video) => !getDownloadMemoryStatus(video.aweme_id))
         : videos;
@@ -134,10 +143,13 @@ export function useDownloads() {
       try {
         const result = await downloadVideos(pendingVideos, name);
         if (result.success && result.task_id) {
-          pendingVideos.forEach((video) => rememberDownload(video.aweme_id, "queued", {
+          pendingVideos.forEach((video) => {
+            rememberDownload(video.aweme_id, "queued", {
             title: video.desc || undefined,
-            author: video.author?.nickname || undefined,
-          }));
+              author: video.author?.nickname || undefined,
+            });
+            markDownloadQueued(video.aweme_id, source, video.desc || undefined, video.author?.nickname || undefined);
+          });
           const totalVideos = result.total_videos ?? pendingVideos.length;
           updateTask({
             id: result.task_id,
@@ -155,8 +167,11 @@ export function useDownloads() {
           throw new Error(result.message || "批量下载启动失败");
         }
       } catch (e) {
-        pendingVideos.forEach((video) => forgetQueuedDownload(video.aweme_id));
         const msg = e instanceof Error ? e.message : "批量下载启动失败";
+        pendingVideos.forEach((video) => {
+          forgetQueuedDownload(video.aweme_id);
+          markDownloadFailed(video.aweme_id, msg, source, video.desc || undefined, video.author?.nickname || undefined);
+        });
         addLog(msg, "error");
         toast(msg, "error");
       }
@@ -297,6 +312,52 @@ export function useDownloads() {
     [updateTask, removeTask, addLog, toast]
   );
 
+
+  const retryFailedAweme = useCallback(
+    async (record: { awemeId: string; title?: string; author?: string; sources?: string[] }) => {
+      const awemeId = String(record.awemeId || "").trim();
+      if (!awemeId) return;
+      const source = (record.sources?.[0] || "unknown") as ZhengDownloadSource;
+      const retryVideo = {
+        aweme_id: awemeId,
+        desc: record.title || "",
+        author: { nickname: record.author || "" },
+        media_type: "video",
+        raw_media_type: "video",
+        media_urls: [],
+      } as unknown as VideoInfo;
+
+      clearDownloadFailure(awemeId);
+      forgetQueuedDownload(awemeId);
+      try {
+        const nextTaskId = await addDownloadTask(retryVideo);
+        const id = nextTaskId || awemeId;
+        updateTask({
+          id,
+          awemeId,
+          filename: record.title || awemeId,
+          progress: 0,
+          status: "pending",
+          startTime: Date.now(),
+          errorMessage: undefined,
+        });
+        rememberDownload(awemeId, "queued", { title: record.title, author: record.author });
+        markDownloadQueued(awemeId, source, record.title, record.author);
+        if (nextTaskId) await startDownload(nextTaskId);
+        addLog(`已重新提交下载: ${record.title || awemeId}`, "success");
+        toast(`已重新提交下载: ${record.title || awemeId}`, "success");
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "重新下载失败";
+        forgetQueuedDownload(awemeId);
+        markDownloadFailed(awemeId, msg, source, record.title, record.author);
+        updateTask({ id: awemeId, awemeId, filename: record.title || awemeId, status: "error", progress: 0, errorMessage: msg });
+        addLog(msg, "error");
+        toast(msg, "error");
+      }
+    },
+    [updateTask, addLog, toast]
+  );
+
   const removeDownload = useCallback(
     async (taskId: string) => {
       try {
@@ -341,7 +402,11 @@ export function useDownloads() {
         updateTask(task as DownloadTask);
         if (task.awemeId && task.status === "completed") {
           rememberDownload(task.awemeId, "downloaded");
-        } else if (task.awemeId && (task.status === "error" || task.status === "cancelled")) {
+          markDownloadCompleted(task.awemeId);
+        } else if (task.awemeId && task.status === "error") {
+          forgetQueuedDownload(task.awemeId);
+          markDownloadFailed(task.awemeId, task.errorMessage || "下载失败");
+        } else if (task.awemeId && task.status === "cancelled") {
           forgetQueuedDownload(task.awemeId);
         }
       });
@@ -357,6 +422,7 @@ export function useDownloads() {
     pauseTask,
     resumeTask,
     retryDownload,
+    retryFailedAweme,
     removeTask: removeDownload,
     clearCompleted,
     openDownloadsDirectory,
