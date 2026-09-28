@@ -22,6 +22,7 @@ import {
   Activity,
   PanelLeftClose,
   PanelLeftOpen,
+  Wrench,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { id: "notices", label: "通知", icon: Bell },
   { id: "friends-status", label: "好友", icon: Users },
   { id: "automation", label: "监控", icon: Activity },
+  { id: "zheng-mod", label: "郑老师魔改版", icon: Wrench },
   { id: "settings", label: "设置", icon: Settings },
 ];
 
@@ -236,8 +238,8 @@ export function Sidebar() {
           <span className="truncate text-[0.9rem] font-[780] tracking-tight text-text">
             better-douyin
           </span>
-          <span className="whitespace-nowrap text-[0.7rem] font-semibold text-text-muted tracking-wide">
-            本地媒体工作台
+          <span className="whitespace-nowrap text-[0.7rem] font-semibold text-accent tracking-wide">
+            郑老师魔改版
           </span>
         </div>
       </div>
