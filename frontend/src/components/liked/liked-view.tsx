@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Download,
@@ -30,8 +30,12 @@ import { useSearchStore } from "@/stores/search-store";
 import { downloadUserVideos, mediaProxyUrl, type UserInfo, type VideoInfo } from "@/lib/tauri";
 import { videoAuthorToUserInfo } from "@/lib/video-author";
 import { cn, formatNumber } from "@/lib/utils";
+import { getDownloadMemoryStatus } from "@/lib/download-memory";
+import { getZhengDownloadRecord, subscribeZhengDownloadDb } from "@/lib/zheng-download-db";
+import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
 
 type LikedTab = "videos" | "authors";
+type DownloadFilter = "all" | "undownloaded" | "downloaded" | "queued" | "failed" | "seen";
 const ORIGINAL_VIDEO_GRID_CLASS = VIDEO_CARD_GRID_CLASS;
 
 export function LikedView() {
@@ -219,10 +223,52 @@ function LikedVideosPanel({
   onDownloadAll: () => void;
 }) {
   const cookieLoggedIn = useAppStore((s) => s.cookieLoggedIn);
+  const [filter, setFilter] = useState<DownloadFilter>("all");
+  const [, setDbVersion] = useState(0);
+  useEffect(() => subscribeZhengDownloadDb(() => setDbVersion((value) => value + 1)), []);
+
+  const filteredVideos = useMemo(() => {
+    if (!isZhengModFeatureEnabled("showDownloadFilters") || filter === "all") return videos;
+    return videos.filter((video) => {
+      const memory = getDownloadMemoryStatus(video.aweme_id);
+      const record = getZhengDownloadRecord(video.aweme_id);
+      if (filter === "downloaded") return memory === "downloaded" || record?.state === "downloaded";
+      if (filter === "queued") return memory === "queued" || record?.state === "queued";
+      if (filter === "failed") return record?.state === "failed";
+      if (filter === "seen") return record?.state === "seen";
+      return memory !== "downloaded" && memory !== "queued" && record?.state !== "downloaded" && record?.state !== "queued";
+    });
+  }, [videos, filter]);
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-2 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        {isZhengModFeatureEnabled("showDownloadFilters") ? (
+          <div className="flex flex-wrap items-center gap-1 rounded-[12px] border border-border bg-surface p-1">
+            {([
+              ["all", "全部"],
+              ["undownloaded", "未下载"],
+              ["downloaded", "已下载"],
+              ["queued", "已排队"],
+              ["failed", "失败"],
+              ["seen", "已浏览"],
+            ] as Array<[DownloadFilter, string]>).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={cn(
+                  "rounded-[9px] px-2.5 py-1.5 text-[0.7rem] font-semibold transition-colors",
+                  filter === key ? "bg-accent-soft text-accent" : "text-text-muted hover:bg-surface-raised hover:text-text"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+            <Badge variant="outline">{filteredVideos.length}</Badge>
+          </div>
+        ) : <div />}
+        <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading || loadingMore}>
           {loading ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -233,8 +279,9 @@ function LikedVideosPanel({
         </Button>
         <Button variant="default" size="sm" onClick={onDownloadAll} disabled={videos.length === 0}>
           <Download className="w-3.5 h-3.5" />
-          下载当前列表
+          下载所有未下载
         </Button>
+        </div>
       </div>
 
       {loading && videos.length === 0 ? (
@@ -250,7 +297,7 @@ function LikedVideosPanel({
       ) : (
         <>
           <VirtualVideoGrid
-            videos={videos}
+            videos={filteredVideos}
             onSelect={onSelect}
             onDetail={onDetail}
             onDownload={onDownload}
