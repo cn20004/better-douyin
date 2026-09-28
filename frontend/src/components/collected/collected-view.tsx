@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -36,6 +36,9 @@ import {
 import { videoAuthorToUserInfo } from "@/lib/video-author";
 import { COLLECTED_VIDEOS_SOFT_LIMIT, MIX_VIDEOS_SOFT_LIMIT, trimVideoListWindow } from "@/lib/list-limits";
 import { cn } from "@/lib/utils";
+import { getDownloadMemoryStatus } from "@/lib/download-memory";
+import { getZhengDownloadRecord, subscribeZhengDownloadDb } from "@/lib/zheng-download-db";
+import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
 import {
   ORIGINAL_VIDEO_GRID_CLASS,
   PAGE_SIZE,
@@ -97,6 +100,8 @@ export function CollectedView() {
   );
 }
 
+type DownloadFilter = "all" | "undownloaded" | "downloaded" | "queued" | "failed" | "seen";
+
 function CollectedVideosPanel() {
   const { downloadVideo, downloadBatch } = useDownloads();
   const addLog = useLogStore((s) => s.addLog);
@@ -117,6 +122,22 @@ function CollectedVideosPanel() {
   const [playerIndex, setPlayerIndex] = useState<number | null>(null);
   const [authorLoadingId, setAuthorLoadingId] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [filter, setFilter] = useState<DownloadFilter>("all");
+  const [, setDbVersion] = useState(0);
+  useEffect(() => subscribeZhengDownloadDb(() => setDbVersion((value) => value + 1)), []);
+
+  const filteredVideos = useMemo(() => {
+    if (!isZhengModFeatureEnabled("showDownloadFilters") || filter === "all") return videos;
+    return videos.filter((video) => {
+      const memory = getDownloadMemoryStatus(video.aweme_id);
+      const record = getZhengDownloadRecord(video.aweme_id);
+      if (filter === "downloaded") return memory === "downloaded" || record?.state === "downloaded";
+      if (filter === "queued") return memory === "queued" || record?.state === "queued";
+      if (filter === "failed") return record?.state === "failed";
+      if (filter === "seen") return record?.state === "seen";
+      return memory !== "downloaded" && memory !== "queued" && record?.state !== "downloaded" && record?.state !== "queued";
+    });
+  }, [videos, filter]);
 
   const loadVideos = useCallback(async (reset = false) => {
     if (loading || loadingMore) return;
@@ -228,8 +249,35 @@ function CollectedVideosPanel() {
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <Badge variant="secondary">{videos.length} 个视频</Badge>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{videos.length} 个视频</Badge>
+          {isZhengModFeatureEnabled("showDownloadFilters") && (
+            <div className="flex flex-wrap items-center gap-1 rounded-[12px] border border-border bg-surface p-1">
+              {([
+                ["all", "全部"],
+                ["undownloaded", "未下载"],
+                ["downloaded", "已下载"],
+                ["queued", "已排队"],
+                ["failed", "失败"],
+                ["seen", "已浏览"],
+              ] as Array<[DownloadFilter, string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setFilter(key)}
+                  className={cn(
+                    "rounded-[9px] px-2.5 py-1.5 text-[0.7rem] font-semibold transition-colors",
+                    filter === key ? "bg-accent-soft text-accent" : "text-text-muted hover:bg-surface-raised hover:text-text"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              <Badge variant="outline">{filteredVideos.length}</Badge>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void loadVideos(true)} disabled={loading || loadingMore}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -237,7 +285,7 @@ function CollectedVideosPanel() {
           </Button>
           <Button variant="default" size="sm" onClick={() => void downloadBatch(videos, "收藏视频")} disabled={videos.length === 0}>
             <Download className="h-3.5 w-3.5" />
-            下载当前列表
+            下载所有未下载
           </Button>
         </div>
       </div>
@@ -256,7 +304,7 @@ function CollectedVideosPanel() {
         <>
           {error && <InlineWarning message={error} />}
           <VirtualVideoGrid
-            videos={videos}
+            videos={filteredVideos}
             onSelect={openPlayer}
             onDetail={setDetailVideo}
             onDownload={(item) => void downloadVideo(item)}

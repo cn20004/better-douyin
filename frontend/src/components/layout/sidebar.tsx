@@ -22,9 +22,12 @@ import {
   Activity,
   PanelLeftClose,
   PanelLeftOpen,
+  Wrench,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getFailedDownloadRecords, subscribeZhengDownloadDb } from "@/lib/zheng-download-db";
 
 interface NavItem {
   id: ViewType;
@@ -43,6 +46,8 @@ const navItems: NavItem[] = [
   { id: "notices", label: "通知", icon: Bell },
   { id: "friends-status", label: "好友", icon: Users },
   { id: "automation", label: "监控", icon: Activity },
+  { id: "failed-downloads", label: "下载失败", icon: AlertTriangle },
+  { id: "zheng-mod", label: "郑老师魔改版", icon: Wrench },
   { id: "settings", label: "设置", icon: Settings },
 ];
 
@@ -104,7 +109,10 @@ export function Sidebar() {
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 720px)").matches
   );
   const [showPopover, setShowPopover] = useState(false);
+  const [failedDownloadCount, setFailedDownloadCount] = useState(() => getFailedDownloadRecords().length);
   const isCollapsed = collapsed || compactViewport;
+
+  useEffect(() => subscribeZhengDownloadDb(() => setFailedDownloadCount(getFailedDownloadRecords().length)), []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -236,8 +244,8 @@ export function Sidebar() {
           <span className="truncate text-[0.9rem] font-[780] tracking-tight text-text">
             better-douyin
           </span>
-          <span className="whitespace-nowrap text-[0.7rem] font-semibold text-text-muted tracking-wide">
-            本地媒体工作台
+          <span className="whitespace-nowrap text-[0.7rem] font-semibold text-accent tracking-wide">
+            郑老师魔改版
           </span>
         </div>
       </div>
@@ -315,6 +323,11 @@ export function Sidebar() {
               {item.id === "friends-status" && friendUnreadCount > 0 && (
                 <Badge variant="default" size="sm" className={cn(isCollapsed ? "absolute -right-1 -top-1" : "ml-auto")}>
                   {friendUnreadCount > 99 ? "99+" : friendUnreadCount}
+                </Badge>
+              )}
+              {item.id === "failed-downloads" && failedDownloadCount > 0 && (
+                <Badge variant="default" size="sm" className={cn(isCollapsed ? "absolute -right-1 -top-1" : "ml-auto")}>
+                  {failedDownloadCount > 99 ? "99+" : failedDownloadCount}
                 </Badge>
               )}
               {item.id === "notices" && noticeUnreadCount > 0 && (

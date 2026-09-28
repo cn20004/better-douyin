@@ -11,6 +11,8 @@ import { UserDetail } from "@/components/search/user-detail";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useGlobalNoticeMonitor } from "@/hooks/use-global-notice-monitor";
+import { readString, writeString } from "@/lib/storage";
+import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
 
 const RecommendedFeed = lazy(() => import("@/components/recommended/feed").then((module) => ({ default: module.RecommendedFeed })));
 const DownloadsView = lazy(() => import("@/components/downloads/downloads-view").then((module) => ({ default: module.DownloadsView })));
@@ -20,6 +22,8 @@ const CollectedView = lazy(() => import("@/components/collected/collected-view")
 const FriendsStatusView = lazy(() => import("@/components/friends/friends-status-view").then((module) => ({ default: module.FriendsStatusView })));
 const NoticesView = lazy(() => import("@/components/notices/notices-view").then((module) => ({ default: module.NoticesView })));
 const AutomationView = lazy(() => import("@/components/automation/automation-view").then((module) => ({ default: module.AutomationView })));
+const ZhengModView = lazy(() => import("@/components/zheng-mod/zheng-mod-view").then((module) => ({ default: module.ZhengModView })));
+const FailedDownloadsView = lazy(() => import("@/components/downloads/failed-downloads-view").then((module) => ({ default: module.FailedDownloadsView })));
 
 const TAURI_DRAG_HEIGHT = 36;
 const MAC_TRAFFIC_LIGHTS_WIDTH = 96;
@@ -63,6 +67,8 @@ const VIEWS = [
   { id: "friends-status", scroll: false },
   { id: "notices", scroll: false },
   { id: "automation", scroll: true },
+  { id: "failed-downloads", scroll: true },
+  { id: "zheng-mod", scroll: true },
   { id: "settings", scroll: true },
 ] as const;
 
@@ -154,6 +160,16 @@ export function AppShell() {
           {VIEWS.filter((view) => visitedViews.has(view.id)).map((view) => (
             <div
               key={view.id}
+              data-view-id={view.id}
+              ref={(node) => {
+                if (!node || !view.scroll || !isZhengModFeatureEnabled("rememberScrollPosition")) return;
+                const saved = Number(readString(`zheng-mod.scroll.${view.id}`, "0")) || 0;
+                if (saved > 0 && Math.abs(node.scrollTop - saved) > 8) node.scrollTop = saved;
+              }}
+              onScroll={(event) => {
+                if (!view.scroll || !isZhengModFeatureEnabled("rememberScrollPosition")) return;
+                writeString(`zheng-mod.scroll.${view.id}`, String(event.currentTarget.scrollTop));
+              }}
               className={cn(
                 "absolute inset-0",
                 view.scroll
@@ -263,6 +279,22 @@ function renderView(view: string) {
         <motion.div key="automation" {...variants} transition={transition} className="p-4">
           <LazyView>
             <AutomationView />
+          </LazyView>
+        </motion.div>
+      );
+    case "failed-downloads":
+      return (
+        <motion.div key="failed-downloads" {...variants} transition={transition} className="p-6">
+          <LazyView>
+            <FailedDownloadsView />
+          </LazyView>
+        </motion.div>
+      );
+    case "zheng-mod":
+      return (
+        <motion.div key="zheng-mod" {...variants} transition={transition} className="p-6">
+          <LazyView>
+            <ZhengModView />
           </LazyView>
         </motion.div>
       );

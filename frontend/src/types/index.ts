@@ -4,7 +4,7 @@
 
 import type { NoticeItem } from "@/lib/contracts";
 
-export type ViewType = "home" | "search" | "user" | "link" | "recommended" | "downloads" | "liked" | "collected" | "liked-authors" | "notices" | "friends-status" | "automation" | "settings";
+export type ViewType = "home" | "search" | "user" | "link" | "recommended" | "downloads" | "liked" | "collected" | "liked-authors" | "notices" | "friends-status" | "automation" | "failed-downloads" | "zheng-mod" | "settings";
 
 export type ThemeMode = "light" | "dark" | "auto";
 
