@@ -77,7 +77,11 @@ export function upsertDownloadRecord(
 }
 
 export function markVideoSeen(awemeId: string, source?: string, title?: string, author?: string) {
-  upsertDownloadRecord(awemeId, { state: "seen", source, title, author });
+  const current = getZhengDownloadRecord(awemeId);
+  const state = current && ["queued", "downloaded", "failed"].includes(current.state)
+    ? current.state
+    : "seen";
+  upsertDownloadRecord(awemeId, { state, source, title, author });
 }
 
 export function markDownloadQueued(awemeId: string, source?: string, title?: string, author?: string) {
