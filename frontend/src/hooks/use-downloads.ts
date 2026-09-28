@@ -23,6 +23,7 @@ import {
   rememberDownload,
   rememberDownloadedIds,
 } from "@/lib/download-memory";
+import { isZhengModFeatureEnabled } from "@/lib/zheng-mod-config";
 
 // ═══════════════════════════════════════════════
 // Download Hook
@@ -41,6 +42,7 @@ export function useDownloads() {
   }, []);
 
   useEffect(() => {
+    if (!isZhengModFeatureEnabled("syncExistingHistory")) return;
     let disposed = false;
     void (async () => {
       try {
@@ -61,7 +63,7 @@ export function useDownloads() {
   const startSingleDownload = useCallback(
     async (video: VideoInfo) => {
       const taskId = video.aweme_id;
-      const existingStatus = getDownloadMemoryStatus(taskId);
+      const existingStatus = isZhengModFeatureEnabled("skipDuplicateDownloads") ? getDownloadMemoryStatus(taskId) : null;
       if (existingStatus) {
         const msg = existingStatus === "downloaded"
           ? `已下载过，已跳过: ${video.desc?.slice(0, 30) || taskId}`
@@ -113,7 +115,9 @@ export function useDownloads() {
 
   const downloadBatch = useCallback(
     async (videos: VideoInfo[], name: string = "批量下载") => {
-      const pendingVideos = videos.filter((video) => !getDownloadMemoryStatus(video.aweme_id));
+      const pendingVideos = isZhengModFeatureEnabled("skipDuplicateDownloads")
+        ? videos.filter((video) => !getDownloadMemoryStatus(video.aweme_id))
+        : videos;
       const skipped = videos.length - pendingVideos.length;
       if (pendingVideos.length === 0) {
         const msg = `${name}：当前列表全部已下载或已在队列中，无需重复下载`;
