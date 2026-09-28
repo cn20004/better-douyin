@@ -20,6 +20,7 @@ const CollectedView = lazy(() => import("@/components/collected/collected-view")
 const FriendsStatusView = lazy(() => import("@/components/friends/friends-status-view").then((module) => ({ default: module.FriendsStatusView })));
 const NoticesView = lazy(() => import("@/components/notices/notices-view").then((module) => ({ default: module.NoticesView })));
 const AutomationView = lazy(() => import("@/components/automation/automation-view").then((module) => ({ default: module.AutomationView })));
+const ZhengModView = lazy(() => import("@/components/zheng-mod/zheng-mod-view").then((module) => ({ default: module.ZhengModView })));
 
 const TAURI_DRAG_HEIGHT = 36;
 const MAC_TRAFFIC_LIGHTS_WIDTH = 96;
@@ -63,6 +64,7 @@ const VIEWS = [
   { id: "friends-status", scroll: false },
   { id: "notices", scroll: false },
   { id: "automation", scroll: true },
+  { id: "zheng-mod", scroll: true },
   { id: "settings", scroll: true },
 ] as const;
 
@@ -263,6 +265,14 @@ function renderView(view: string) {
         <motion.div key="automation" {...variants} transition={transition} className="p-4">
           <LazyView>
             <AutomationView />
+          </LazyView>
+        </motion.div>
+      );
+    case "zheng-mod":
+      return (
+        <motion.div key="zheng-mod" {...variants} transition={transition} className="p-6">
+          <LazyView>
+            <ZhengModView />
           </LazyView>
         </motion.div>
       );
