@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getFailedDownloadRecords, subscribeZhengDownloadDb } from "@/lib/zheng-download-db";
 
 interface NavItem {
   id: ViewType;
@@ -108,7 +109,10 @@ export function Sidebar() {
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 720px)").matches
   );
   const [showPopover, setShowPopover] = useState(false);
+  const [failedDownloadCount, setFailedDownloadCount] = useState(() => getFailedDownloadRecords().length);
   const isCollapsed = collapsed || compactViewport;
+
+  useEffect(() => subscribeZhengDownloadDb(() => setFailedDownloadCount(getFailedDownloadRecords().length)), []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -319,6 +323,11 @@ export function Sidebar() {
               {item.id === "friends-status" && friendUnreadCount > 0 && (
                 <Badge variant="default" size="sm" className={cn(isCollapsed ? "absolute -right-1 -top-1" : "ml-auto")}>
                   {friendUnreadCount > 99 ? "99+" : friendUnreadCount}
+                </Badge>
+              )}
+              {item.id === "failed-downloads" && failedDownloadCount > 0 && (
+                <Badge variant="default" size="sm" className={cn(isCollapsed ? "absolute -right-1 -top-1" : "ml-auto")}>
+                  {failedDownloadCount > 99 ? "99+" : failedDownloadCount}
                 </Badge>
               )}
               {item.id === "notices" && noticeUnreadCount > 0 && (
